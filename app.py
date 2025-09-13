@@ -35,101 +35,119 @@ st.markdown("""
         border-left: 4px solid #6A0DAD;
         margin-bottom: 1rem;
     }
-    .sample-info {
-        background-color: #f6ffed;
+    .file-info {
+        background-color: #e6f7ff;
         padding: 15px;
         border-radius: 5px;
-        border-left: 4px solid #52c41a;
+        border-left: 4px solid #1890ff;
         margin-bottom: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-def carregar_dados_embutidos():
-    """Carrega dados de exemplo embutidos no código"""
+@st.cache_data(show_spinner=False)
+def carregar_csv_completo():
+    """Carrega o arquivo CSV completo do repositório"""
     try:
-        # Dados de exemplo simulados (substitua pelos seus dados reais)
-        dados_exemplo = {
-            'date_purchase': [
-                '2023-05-15', '2023-05-16', '2023-05-17', '2023-05-18', '2023-05-19',
-                '2023-06-10', '2023-06-11', '2023-06-12', '2023-06-13', '2023-06-14',
-                '2023-07-05', '2023-07-06', '2023-07-07', '2023-07-08', '2023-07-09',
-                '2023-08-12', '2023-08-13', '2023-08-14', '2023-08-15', '2023-08-16',
-                '2023-09-20', '2023-09-21', '2023-09-22', '2023-09-23', '2023-09-24'
-            ],
-            'time_purchase': [
-                '14:30:00', '09:15:00', '16:45:00', '11:20:00', '18:30:00',
-                '08:45:00', '15:20:00', '10:30:00', '17:15:00', '13:40:00',
-                '12:15:00', '19:30:00', '09:45:00', '14:20:00', '16:10:00',
-                '10:45:00', '15:30:00', '08:20:00', '17:45:00', '12:30:00',
-                '11:10:00', '16:50:00', '09:30:00', '14:45:00', '18:20:00'
-            ],
-            'gmv_success': [
-                150.50, 89.90, 210.00, 75.30, 185.75,
-                95.25, 120.00, 65.80, 145.90, 110.50,
-                130.75, 195.25, 85.40, 155.60, 175.30,
-                70.90, 125.45, 55.60, 165.80, 140.25,
-                115.75, 180.90, 90.30, 160.45, 200.75
-            ],
-            'place_destination_departure': [
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
-                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG', 'São Paulo - SP'
-            ],
-            'place_origin_return': [
-                '0', '1', '0', '1', '0', '1', '0', '1', '0', '1',
-                '0', '1', '0', '1', '0', '1', '0', '1', '0', '1',
-                '0', '1', '0', '1', '0'
-            ],
-            'fk_contact': [
-                'user001', 'user002', 'user003', 'user004', 'user005',
-                'user006', 'user007', 'user008', 'user009', 'user010',
-                'user011', 'user012', 'user013', 'user014', 'user015',
-                'user016', 'user017', 'user018', 'user019', 'user020',
-                'user021', 'user022', 'user023', 'user024', 'user025'
-            ]
-        }
+        # Tenta carregar o arquivo CSV do diretório do GitHub
+        # Altere 'dados.csv' para o nome do seu arquivo real
+        arquivo_csv = "df_t.csv"  # ← ALTERE PARA O NOME DO SEU ARQUIVO
         
-        df = pd.DataFrame(dados_exemplo)
+        st.info(f"📁 Tentando carregar: {arquivo_csv}")
+        
+        # Verifica se o arquivo existe
+        if not os.path.exists(arquivo_csv):
+            st.warning(f"Arquivo '{arquivo_csv}' não encontrado no diretório.")
+            
+            # Lista arquivos disponíveis para debug
+            st.write("📂 Arquivos no diretório:")
+            for f in os.listdir('.'):
+                if f.endswith('.csv'):
+                    size = os.path.getsize(f) / (1024*1024)
+                    st.write(f"- {f}: {size:.1f} MB")
+            
+            return None
+        
+        # Carrega o CSV completo
+        st.info("⏳ Carregando arquivo CSV completo... (isso pode demorar para arquivos grandes)")
+        
+        # Lê apenas as colunas essenciais para economizar memória
+        colunas_essenciais = [
+            'gmv_success', 'date_purchase', 'time_purchase',
+            'place_destination_departure', 'place_origin_return', 'fk_contact'
+        ]
+        
+        # Primeiro verifica quais colunas existem no arquivo
+        colunas_existentes = pd.read_csv(arquivo_csv, nrows=0).columns.tolist()
+        colunas_para_ler = [col for col in colunas_essenciais if col in colunas_existentes]
+        
+        st.write(f"📋 Colunas encontradas: {', '.join(colunas_para_ler)}")
+        
+        # Lê o arquivo completo com as colunas selecionadas
+        df = pd.read_csv(arquivo_csv, usecols=colunas_para_ler)
+        
+        st.success(f"✅ Arquivo carregado com sucesso! {len(df):,} registros")
         
         # PRÉ-PROCESSAMENTO
-        # Converter data e hora
-        df['data_hora'] = pd.to_datetime(
-            df['date_purchase'] + ' ' + df['time_purchase'],
-            errors='coerce'
-        )
+        st.info("🔍 Processando dados...")
         
-        # Remover linhas com datas inválidas
-        df = df.dropna(subset=['data_hora'])
+        # 1. Converter data e hora
+        if 'date_purchase' in df.columns and 'time_purchase' in df.columns:
+            df['data_hora'] = pd.to_datetime(
+                df['date_purchase'] + ' ' + df['time_purchase'],
+                errors='coerce'
+            )
+            
+            # Remover linhas com datas inválidas
+            linhas_antes = len(df)
+            df = df.dropna(subset=['data_hora'])
+            linhas_apos = len(df)
+            
+            if linhas_antes != linhas_apos:
+                st.write(f"📅 Datas válidas: {linhas_apos:,} de {linhas_antes:,} registros")
+            
+            # Extrair informações temporais
+            df['mes_ano'] = df['data_hora'].dt.to_period('M')
+            df['ano'] = df['data_hora'].dt.year
+            df['mes'] = df['data_hora'].dt.month
+            df['dia_semana'] = df['data_hora'].dt.day_name()
+            
+            # Filtrar para período mais recente (últimos 12-15 meses)
+            if len(df) > 0:
+                data_mais_recente = df['data_hora'].max()
+                data_inicio = data_mais_recente - pd.DateOffset(months=15)
+                df = df[df['data_hora'] >= data_inicio]
+                st.write(f"📅 Período analisado: {data_inicio.date()} a {data_mais_recente.date()}")
         
-        # Extrair informações temporais
-        df['mes_ano'] = df['data_hora'].dt.to_period('M')
-        df['ano'] = df['data_hora'].dt.year
-        df['mes'] = df['data_hora'].dt.month
-        df['dia_semana'] = df['data_hora'].dt.day_name()
-        df['hora'] = df['data_hora'].dt.hour
+        # 2. Processar valores monetários
+        if 'gmv_success' in df.columns:
+            # Converter para numérico
+            df['gmv_success'] = pd.to_numeric(df['gmv_success'], errors='coerce')
+            df = df.dropna(subset=['gmv_success'])
+            
+            # Estatísticas básicas
+            valor_medio = df['gmv_success'].mean()
+            valor_max = df['gmv_success'].max()
+            valor_min = df['gmv_success'].min()
+            
+            st.write(f"💰 Valores: Médio R$ {valor_medio:.2f} | Min R$ {valor_min:.2f} | Max R$ {valor_max:.2f}")
         
-        # Processar retornos
-        df['tem_retorno'] = df['place_origin_return'] != '0'
+        # 3. Processar destinos
+        if 'place_destination_departure' in df.columns:
+            destinos_unicos = df['place_destination_departure'].nunique()
+            st.write(f"🗺️ Destinos únicos: {destinos_unicos}")
         
-        st.success(f"✅ Dados de exemplo carregados: {len(df):,} registros")
-        
-        # Mostrar informações dos dados
-        data_min = df['data_hora'].min()
-        data_max = df['data_hora'].max()
-        st.info(f"📅 Período: {data_min.date()} a {data_max.date()}")
-        st.info(f"💰 Valor médio: R$ {df['gmv_success'].mean():.2f}")
-        st.info(f"🗺️ Destinos únicos: {df['place_destination_departure'].nunique()}")
+        # 4. Processar retornos
+        if 'place_origin_return' in df.columns:
+            df['tem_retorno'] = df['place_origin_return'] != '0'
+            if 'tem_retorno' in df.columns:
+                perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
+                st.write(f"🔄 Viagens com retorno: {perc_retorno:.1f}%")
         
         return df
         
     except Exception as e:
-        st.error(f"❌ Erro ao carregar dados embutidos: {str(e)}")
+        st.error(f"❌ Erro ao carregar arquivo CSV: {str(e)}")
         return None
 
 def gerar_grafico_media_mensal(df):
@@ -140,7 +158,7 @@ def gerar_grafico_media_mensal(df):
         media_mensal = df.groupby('mes_ano')['gmv_success'].mean()
         
         ax.plot(media_mensal.index.astype(str), media_mensal.values, 
-                marker='o', color=click_bus_palette[0], linewidth=3, markersize=8)
+                marker='o', color=click_bus_palette[0], linewidth=3, markersize=6)
         
         media_geral = df['gmv_success'].mean()
         ax.axhline(y=media_geral, color=click_bus_palette[1], linestyle='--', 
@@ -167,14 +185,14 @@ def gerar_grafico_destinos(df):
         ax.set_yticks(range(len(top_destinos)))
         
         # Truncar nomes muito longos
-        labels = [str(d)[:25] + '...' if len(str(d)) > 25 else str(d) for d in top_destinos.index]
-        ax.set_yticklabels(labels)
+        labels = [str(d)[:30] + '...' if len(str(d)) > 30 else str(d) for d in top_destinos.index]
+        ax.set_yticklabels(labels, fontsize=10)
         
         for i, v in enumerate(top_destinos.values):
-            ax.text(v + max(top_destinos.values) * 0.01, i, f'{v}', 
-                    va='center', fontweight='bold', fontsize=10, color=click_bus_palette[4])
+            ax.text(v + max(top_destinos.values) * 0.01, i, f'{v:,}', 
+                    va='center', fontweight='bold', fontsize=9, color=click_bus_palette[4])
         
-        ax.set_title("Top Destinos Mais Comuns", fontsize=16, fontweight='bold', pad=20)
+        ax.set_title("Top 10 Destinos Mais Comuns", fontsize=16, fontweight='bold', pad=20)
         ax.set_xlabel("Número de Viagens", fontsize=12)
         ax.grid(True, alpha=0.3, axis='x')
     
@@ -186,7 +204,12 @@ def gerar_grafico_distribuicao(df):
     fig, ax = plt.subplots(figsize=(12, 6))
     
     if 'gmv_success' in df.columns:
-        ax.hist(df['gmv_success'], bins=15, alpha=0.7, 
+        # Usar percentis para visualização melhor
+        Q1 = df['gmv_success'].quantile(0.01)
+        Q3 = df['gmv_success'].quantile(0.99)
+        df_filtrado = df[(df['gmv_success'] >= Q1) & (df['gmv_success'] <= Q3)]
+        
+        ax.hist(df_filtrado['gmv_success'], bins=30, alpha=0.7, 
                color=click_bus_palette[0], edgecolor='white')
         
         media = df['gmv_success'].mean()
@@ -211,6 +234,7 @@ def gerar_grafico_retorno(df):
     
     if 'tem_retorno' in df.columns:
         contagem_retorno = df['tem_retorno'].value_counts()
+        
         labels = ['Sem Retorno', 'Com Retorno']
         cores = [click_bus_palette[0], click_bus_palette[1]]
         
@@ -219,11 +243,9 @@ def gerar_grafico_retorno(df):
         
         for text in texts:
             text.set_fontweight('bold')
-            text.set_fontsize(12)
         for autotext in autotexts:
             autotext.set_color('white')
             autotext.set_fontweight('bold')
-            autotext.set_fontsize(12)
         
         ax.set_title("Proporção de Viagens com Retorno", fontsize=16, fontweight='bold', pad=20)
     
@@ -238,7 +260,7 @@ def gerar_grafico_sazonalidade(df):
         viagens_por_mes = df.groupby('mes_ano').size()
         
         ax.plot(viagens_por_mes.index.astype(str), viagens_por_mes.values,
-               marker='o', color=click_bus_palette[0], linewidth=3, markersize=8)
+               marker='o', color=click_bus_palette[0], linewidth=2, markersize=6)
         
         ax.set_title("Sazonalidade - Número de Viagens por Mês", fontsize=16, fontweight='bold', pad=20)
         ax.set_xlabel("Mês/Ano", fontsize=12)
@@ -265,7 +287,7 @@ def mostrar_analise(df):
         st.markdown(f'<div class="metric-card">Valor Médio<br><span style="font-size: 24px; font-weight: bold;">R$ {valor_medio:.2f}</span></div>', unsafe_allow_html=True)
     with col3:
         destino = df['place_destination_departure'].mode()[0]
-        st.markdown(f'<div class="metric-card">Destino Mais Popular<br><span style="font-size: 20px; font-weight: bold;">{destino[:15] + "..." if len(destino) > 15 else destino}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card">Destino Mais Popular<br><span style="font-size: 18px; font-weight: bold;">{destino[:20] + "..." if len(destino) > 20 else destino}</span></div>', unsafe_allow_html=True)
     with col4:
         perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
         st.markdown(f'<div class="metric-card">Viagens c/ Retorno<br><span style="font-size: 24px; font-weight: bold;">{perc_retorno:.1f}%</span></div>', unsafe_allow_html=True)
@@ -302,65 +324,30 @@ def mostrar_analise(df):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📅 Distribuição por Mês")
-        viagens_por_mes = df['mes_ano'].value_counts().sort_index()
-        st.dataframe(viagens_por_mes, use_container_width=True)
+        st.subheader("📅 Viagens por Mês")
+        if 'mes_ano' in df.columns:
+            viagens_por_mes = df['mes_ano'].value_counts().sort_index()
+            st.dataframe(viagens_por_mes, use_container_width=True)
     
     with col2:
         st.subheader("💰 Estatísticas de Valores")
-        stats = df['gmv_success'].describe()
-        st.dataframe(pd.DataFrame({
-            'Estatística': stats.index,
-            'Valor (R$)': stats.values.round(2)
-        }), use_container_width=True, hide_index=True)
+        if 'gmv_success' in df.columns:
+            stats = df['gmv_success'].describe()
+            st.dataframe(pd.DataFrame({
+                'Estatística': stats.index,
+                'Valor (R$)': stats.values.round(2)
+            }), use_container_width=True, hide_index=True)
     
-    # Dados brutos
+    # Amostra dos dados
     st.markdown("---")
-    expander = st.expander("📋 Visualizar Dados Completos")
+    expander = st.expander("📋 Visualizar Amostra dos Dados (100 primeiras linhas)")
     with expander:
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df.head(100), use_container_width=True)
 
 def main():
     st.markdown('<h1 class="main-header">🚌 DataBus - Análise de Viagens ClickBus</h1>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="sample-info">'
-               f'🎯 <strong>MODO DADOS EMBUTIDOS</strong><br>'
-               f'📊 Análise com dados de exemplo integrados - Sem necessidade de upload'
-               f'</div>', unsafe_allow_html=True)
-    
-    # Botão para carregar dados embutidos
-    if st.button("🚀 CARREGAR E ANALISAR DADOS", type="primary", use_container_width=True):
-        with st.spinner("⏳ Carregando dados de exemplo..."):
-            df = carregar_dados_embutidos()
-        
-        if df is not None:
-            mostrar_analise(df)
-    else:
-        # Instruções
-        st.markdown("""
-        ## 📋 Como usar esta ferramenta:
-        
-        1. **🚀 Clique** em "CARREGAR E ANALISAR DADOS"
-        2. **📊 Explore** as métricas e gráficos gerados
-        3. **📋 Analise** os dados de exemplo
-        
-        ### 🎯 Dados de Exemplo Incluídos:
-        - **25 registros** de viagens simuladas
-        - Período de **Maio a Setembro de 2023**
-        - Valores entre **R$ 55,60 e R$ 210,00**
-        - **3 destinos** principais (São Paulo, Rio de Janeiro, Belo Horizonte)
-        - Dados de **retorno** incluídos
-        
-        ### 📊 Métricas Disponíveis:
-        - Média de valores por mês
-        - Top destinos mais comuns  
-        - Distribuição de valores
-        - Proporção de viagens com retorno
-        - Sazonalidade temporal
-        
-        ### 💡 Para usar seus próprios dados:
-        Substitua a função `carregar_dados_embutidos()` com seus dados reais
-        """)
-
-if __name__ == "__main__":
-    main()
+    st.markdown(f'<div class="file-info">'
+               f'🎯 <strong>MODO CSV COMPLETO</strong><br>'
+               f'📊 Análise com arquivo CSV completo do repositório - Sem necessidade de upload'
+               f'</div>',
