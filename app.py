@@ -351,3 +351,16 @@ def main():
                f'🎯 <strong>MODO CSV COMPLETO</strong><br>'
                f'📊 Análise com arquivo CSV completo do repositório - Sem necessidade de upload'
                f'</div>', unsafe_allow_html=True)
+    
+    # Adicionar spinner durante o carregamento
+    with st.spinner('Carregando dados...'):
+        df = carregar_csv_completo()
+    
+    if df is not None:
+        mostrar_analise(df)
+    else:
+        st.error("Não foi possível carregar os dados. Verifique se o arquivo CSV existe.")
+
+# EXECUTAR A APLICAÇÃO
+if __name__ == "__main__":
+    main()
