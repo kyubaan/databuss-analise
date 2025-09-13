@@ -255,6 +255,7 @@ class AnaliseDadosViagens:
         return fig
 
 # Interface principal do Streamlit
+# Interface principal do Streamlit
 def main():
     # Cabeçalho com logo (simulado)
     st.markdown(
@@ -280,14 +281,62 @@ def main():
     
     st.markdown('<h1 class="main-header">🚌 DataBus - Análise de Viagens ClickBus</h1>', unsafe_allow_html=True)
     
-    # Usar arquivo Parquet fixo (já convertido)
+    # Verificar se o arquivo Parquet existe, se não, converter do CSV
     arquivo_parquet = "dados_viagens.parquet"
+    arquivo_csv = "df_t.csv"  # Nome do seu arquivo CSV
     
+    if not os.path.exists(arquivo_parquet):
+        if os.path.exists(arquivo_csv):
+            st.warning("Arquivo Parquet não encontrado. Convertendo CSV...")
+            
+            # Converter CSV para Parquet automaticamente
+            try:
+                with st.spinner("Convertendo CSV para Parquet (isso pode demorar alguns minutos)..."):
+                    # Ler o CSV
+                    df = pd.read_csv(arquivo_csv)
+                    
+                    # Converter para Parquet
+                    df.to_parquet(arquivo_parquet, engine='pyarrow', compression='snappy')
+                    
+                    st.success("✅ Conversão concluída! Recarregando...")
+                    st.experimental_rerun()  # Recarregar a página
+                    
+            except Exception as e:
+                st.error(f"❌ Erro na conversão: {e}")
+                st.info("💡 Certifique-se de que o pyarrow está instalado: `pip install pyarrow`")
+        else:
+            st.warning("Nenhum arquivo de dados encontrado!")
+            st.info("""
+            **Para usar o sistema:**
+            1. Certifique-se de que o arquivo `df_t.csv` está na mesma pasta
+            2. Ou faça upload de um arquivo CSV abaixo
+            """)
+            
+            # Opção de upload de CSV
+            uploaded_file = st.file_uploader("Faça upload de um arquivo CSV", type="csv")
+            if uploaded_file is not None:
+                try:
+                    with st.spinner("Processando arquivo CSV..."):
+                        # Salvar o arquivo uploadado
+                        with open("temp_uploaded.csv", "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        # Converter para Parquet
+                        df = pd.read_csv("temp_uploaded.csv")
+                        df.to_parquet(arquivo_parquet, engine='pyarrow', compression='snappy')
+                        
+                        st.success("✅ Arquivo convertido com sucesso! Recarregando...")
+                        st.experimental_rerun()
+                        
+                except Exception as e:
+                    st.error(f"Erro ao processar arquivo: {e}")
+    
+    # Se o Parquet existe ou foi convertido, carregar os dados
     if os.path.exists(arquivo_parquet):
-        # Carregar dados do Parquet
         analise = AnaliseDadosViagens(arquivo_parquet)
         
         if analise.df is not None:
+          
             # Exibir métricas
             metricas = analise.calcular_metricas()
             
