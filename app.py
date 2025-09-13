@@ -5,11 +5,6 @@ import streamlit as st
 import numpy as np
 from datetime import datetime
 
-uploaded_file = st.file_uploader("Carregar CSV")
-
-if uploaded_file is not None:
-    dados = pd.read_csv(uploaded_file)  # Sem cache - recarrega sempre
-    
 # Configuração da página
 st.set_page_config(page_title="DataBus - Análise de Viagens", page_icon="🚌", layout="wide")
 
@@ -18,6 +13,8 @@ click_bus_palette = ["#6A0DAD", "#FFD700", "#9B30FF", "#FFDF00", "#4B0082", "#DA
 sns.set_palette(click_bus_palette)
 plt.style.use('default')
 
+# Função principal com cache para processamento dos dados
+@st.cache_data(show_spinner="Processando amostra de dados...")
 def processar_amostra_csv(uploaded_file, tamanho_amostra=100000):
     """Processa apenas uma amostra do CSV grande"""
     try:
@@ -88,9 +85,26 @@ def main():
     **💡 Para arquivos grandes (>200MB):** O sistema usa uma amostra representativa para análise.
     """)
     
+    # Verificar se já existem dados em cache
+    if 'dados_processados' not in st.session_state:
+        st.session_state.dados_processados = None
+        st.session_state.nome_arquivo = None
+    
     uploaded_file = st.file_uploader("📤 Faça upload do arquivo CSV", type="csv")
     
+    # Botão para limpar cache e dados
+    if st.button("🔄 Limpar Cache e Recarregar"):
+        st.cache_data.clear()
+        st.session_state.dados_processados = None
+        st.session_state.nome_arquivo = None
+        st.rerun()
+    
     if uploaded_file is not None:
+        # Verificar se é um novo arquivo
+        if st.session_state.nome_arquivo != uploaded_file.name:
+            st.session_state.dados_processados = None
+            st.session_state.nome_arquivo = uploaded_file.name
+        
         # Mostrar informações do arquivo
         file_size = uploaded_file.size / (1024*1024)  # MB
         st.info(f"📁 Arquivo: {uploaded_file.name} | Tamanho: {file_size:.1f} MB")
@@ -104,9 +118,14 @@ def main():
             help="Para arquivos muito grandes, use amostras menores para melhor performance"
         )
         
-        if st.button("🚀 Processar Análise", type="primary"):
-            with st.spinner(f"Processando amostra de {tamanho_amostra:,} registros..."):
-                df = processar_amostra_csv(uploaded_file, tamanho_amostra)
+        if st.button("🚀 Processar Análise", type="primary") or st.session_state.dados_processados is not None:
+            if st.session_state.dados_processados is None:
+                with st.spinner(f"Processando amostra de {tamanho_amostra:,} registros..."):
+                    df = processar_amostra_csv(uploaded_file, tamanho_amostra)
+                    st.session_state.dados_processados = df
+            else:
+                df = st.session_state.dados_processados
+                st.success(f"✅ Dados já processados: {len(df):,} registros")
             
             if df is not None:
                 # Métricas
@@ -156,7 +175,8 @@ def main():
                 # Estatísticas da amostra
                 with st.expander("📊 Estatísticas da Amostra"):
                     st.write(f"- Total de registros na amostra: {len(df):,}")
-                    st.write(f"- Período coberto: {df['data_hora'].min().date()} a {df['data_hora'].max().date()}")
+                    if 'data_hora' in df.columns:
+                        st.write(f"- Período coberto: {df['data_hora'].min().date()} a {df['data_hora'].max().date()}")
                     if 'gmv_success' in df.columns:
                         st.write(f"- Valor médio: R$ {df['gmv_success'].mean():.2f}")
                         st.write(f"- Valor máximo: R$ {df['gmv_success'].max():.2f}")
@@ -171,22 +191,10 @@ def main():
         3. **Clique** em "Processar Análise"
         
         ⚠️ **Arquivos muito grandes** serão processados por amostragem
+        
+        💡 **Dica:** Os dados ficarão salvos até você limpar o cache!
         """)
 
-# 1. ADICIONE A FUNÇÃO COM CACHE
-@st.cache_data
-def carregar_dados(arquivo):
-    return pd.read_csv(arquivo)
-
-# 2. Interface normal
-uploaded_file = st.file_uploader("Carregar CSV")
-
-if uploaded_file is not None:
-    # 3. USE A FUNÇÃO COM CACHE
-    dados = carregar_dados(uploaded_file)
-    
-    # ... resto do seu código (gráficos, análises, etc)
-    st.write("Dados processados e salvos em cache!")
     
 if __name__ == "__main__":
     main()
