@@ -350,4 +350,4 @@ def main():
     st.markdown(f'<div class="file-info">'
                f'🎯 <strong>MODO CSV COMPLETO</strong><br>'
                f'📊 Análise com arquivo CSV completo do repositório - Sem necessidade de upload'
-               f'</div>',
+               f'</div>', unsafe_allow_html=True)
