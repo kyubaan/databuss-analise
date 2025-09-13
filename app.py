@@ -45,79 +45,91 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_data
-def processar_amostra_inteligente(uploaded_file):
-    """Processa a amostra de forma inteligente para extrair máximo de insights"""
+def carregar_dados_embutidos():
+    """Carrega dados de exemplo embutidos no código"""
     try:
-        # Ler o arquivo completo da amostra
-        df = pd.read_csv(uploaded_file)
+        # Dados de exemplo simulados (substitua pelos seus dados reais)
+        dados_exemplo = {
+            'date_purchase': [
+                '2023-05-15', '2023-05-16', '2023-05-17', '2023-05-18', '2023-05-19',
+                '2023-06-10', '2023-06-11', '2023-06-12', '2023-06-13', '2023-06-14',
+                '2023-07-05', '2023-07-06', '2023-07-07', '2023-07-08', '2023-07-09',
+                '2023-08-12', '2023-08-13', '2023-08-14', '2023-08-15', '2023-08-16',
+                '2023-09-20', '2023-09-21', '2023-09-22', '2023-09-23', '2023-09-24'
+            ],
+            'time_purchase': [
+                '14:30:00', '09:15:00', '16:45:00', '11:20:00', '18:30:00',
+                '08:45:00', '15:20:00', '10:30:00', '17:15:00', '13:40:00',
+                '12:15:00', '19:30:00', '09:45:00', '14:20:00', '16:10:00',
+                '10:45:00', '15:30:00', '08:20:00', '17:45:00', '12:30:00',
+                '11:10:00', '16:50:00', '09:30:00', '14:45:00', '18:20:00'
+            ],
+            'gmv_success': [
+                150.50, 89.90, 210.00, 75.30, 185.75,
+                95.25, 120.00, 65.80, 145.90, 110.50,
+                130.75, 195.25, 85.40, 155.60, 175.30,
+                70.90, 125.45, 55.60, 165.80, 140.25,
+                115.75, 180.90, 90.30, 160.45, 200.75
+            ],
+            'place_destination_departure': [
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG',
+                'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG', 'São Paulo - SP'
+            ],
+            'place_origin_return': [
+                '0', '1', '0', '1', '0', '1', '0', '1', '0', '1',
+                '0', '1', '0', '1', '0', '1', '0', '1', '0', '1',
+                '0', '1', '0', '1', '0'
+            ],
+            'fk_contact': [
+                'user001', 'user002', 'user003', 'user004', 'user005',
+                'user006', 'user007', 'user008', 'user009', 'user010',
+                'user011', 'user012', 'user013', 'user014', 'user015',
+                'user016', 'user017', 'user018', 'user019', 'user020',
+                'user021', 'user022', 'user023', 'user024', 'user025'
+            ]
+        }
         
-        st.success(f"✅ Amostra carregada: {len(df):,} registros")
+        df = pd.DataFrame(dados_exemplo)
         
-        # Análise de qualidade dos dados
-        st.info("🔍 Analisando qualidade dos dados...")
+        # PRÉ-PROCESSAMENTO
+        # Converter data e hora
+        df['data_hora'] = pd.to_datetime(
+            df['date_purchase'] + ' ' + df['time_purchase'],
+            errors='coerce'
+        )
         
-        # Verificar colunas disponíveis
-        colunas_disponiveis = df.columns.tolist()
-        st.write(f"📋 Colunas encontradas: {', '.join(colunas_disponiveis)}")
+        # Remover linhas com datas inválidas
+        df = df.dropna(subset=['data_hora'])
         
-        # PRÉ-PROCESSAMENTO INTELIGENTE
+        # Extrair informações temporais
+        df['mes_ano'] = df['data_hora'].dt.to_period('M')
+        df['ano'] = df['data_hora'].dt.year
+        df['mes'] = df['data_hora'].dt.month
+        df['dia_semana'] = df['data_hora'].dt.day_name()
+        df['hora'] = df['data_hora'].dt.hour
         
-        # 1. Converter data e hora (se as colunas existirem)
-        if 'date_purchase' in df.columns and 'time_purchase' in df.columns:
-            df['data_hora'] = pd.to_datetime(
-                df['date_purchase'] + ' ' + df['time_purchase'],
-                errors='coerce'
-            )
-            
-            # Remover linhas com datas inválidas
-            linhas_antes = len(df)
-            df = df.dropna(subset=['data_hora'])
-            linhas_apos = len(df)
-            
-            if linhas_antes != linhas_apos:
-                st.write(f"📅 Datas válidas: {linhas_apos:,} de {linhas_antes:,} registros")
-            
-            # Extrair informações temporais
-            df['mes_ano'] = df['data_hora'].dt.to_period('M')
-            df['ano'] = df['data_hora'].dt.year
-            df['mes'] = df['data_hora'].dt.month
-            df['dia_semana'] = df['data_hora'].dt.day_name()
-            df['hora'] = df['data_hora'].dt.hour
-            
-            # Encontrar período coberto
-            data_min = df['data_hora'].min()
-            data_max = df['data_hora'].max()
-            st.write(f"📅 Período coberto: {data_min.date()} a {data_max.date()}")
+        # Processar retornos
+        df['tem_retorno'] = df['place_origin_return'] != '0'
         
-        # 2. Processar valores monetários
-        if 'gmv_success' in df.columns:
-            # Converter para numérico e remover outliers extremos
-            df['gmv_success'] = pd.to_numeric(df['gmv_success'], errors='coerce')
-            df = df.dropna(subset=['gmv_success'])
-            
-            # Estatísticas básicas
-            valor_medio = df['gmv_success'].mean()
-            valor_max = df['gmv_success'].max()
-            valor_min = df['gmv_success'].min()
-            
-            st.write(f"💰 Valores: Médio R$ {valor_medio:.2f} | Min R$ {valor_min:.2f} | Max R$ {valor_max:.2f}")
+        st.success(f"✅ Dados de exemplo carregados: {len(df):,} registros")
         
-        # 3. Processar destinos
-        if 'place_destination_departure' in df.columns:
-            destinos_unicos = df['place_destination_departure'].nunique()
-            st.write(f"🗺️ Destinos únicos: {destinos_unicos}")
-        
-        # 4. Processar retornos
-        if 'place_origin_return' in df.columns:
-            df['tem_retorno'] = df['place_origin_return'] != '0'
-            perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
-            st.write(f"🔄 Viagens com retorno: {perc_retorno:.1f}%")
+        # Mostrar informações dos dados
+        data_min = df['data_hora'].min()
+        data_max = df['data_hora'].max()
+        st.info(f"📅 Período: {data_min.date()} a {data_max.date()}")
+        st.info(f"💰 Valor médio: R$ {df['gmv_success'].mean():.2f}")
+        st.info(f"🗺️ Destinos únicos: {df['place_destination_departure'].nunique()}")
         
         return df
         
     except Exception as e:
-        st.error(f"❌ Erro ao processar amostra: {str(e)}")
+        st.error(f"❌ Erro ao carregar dados embutidos: {str(e)}")
         return None
 
 def gerar_grafico_media_mensal(df):
@@ -127,26 +139,19 @@ def gerar_grafico_media_mensal(df):
     if 'mes_ano' in df.columns and 'gmv_success' in df.columns:
         media_mensal = df.groupby('mes_ano')['gmv_success'].mean()
         
-        if len(media_mensal) > 1:  # Só plotar se tiver mais de 1 mês
-            ax.plot(media_mensal.index.astype(str), media_mensal.values, 
-                    marker='o', color=click_bus_palette[0], linewidth=3, markersize=8)
-            
-            media_geral = df['gmv_success'].mean()
-            ax.axhline(y=media_geral, color=click_bus_palette[1], linestyle='--', 
-                      linewidth=2, label=f'Média Geral: R$ {media_geral:.2f}')
-            
-            ax.set_title("Média de Valores por Mês", fontsize=16, fontweight='bold', pad=20)
-            ax.set_xlabel("Mês/Ano", fontsize=12)
-            ax.set_ylabel("Valor Médio (R$)", fontsize=12)
-            ax.tick_params(axis='x', rotation=45)
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-        else:
-            ax.text(0.5, 0.5, 'Dados insuficientes para tendência temporal', 
-                    ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'Dados insuficientes para o gráfico', 
-                ha='center', va='center', transform=ax.transAxes)
+        ax.plot(media_mensal.index.astype(str), media_mensal.values, 
+                marker='o', color=click_bus_palette[0], linewidth=3, markersize=8)
+        
+        media_geral = df['gmv_success'].mean()
+        ax.axhline(y=media_geral, color=click_bus_palette[1], linestyle='--', 
+                  linewidth=2, label=f'Média Geral: R$ {media_geral:.2f}')
+        
+        ax.set_title("Média de Valores por Mês", fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel("Mês/Ano", fontsize=12)
+        ax.set_ylabel("Valor Médio (R$)", fontsize=12)
+        ax.tick_params(axis='x', rotation=45)
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
     plt.tight_layout()
     return fig
@@ -158,27 +163,20 @@ def gerar_grafico_destinos(df):
     if 'place_destination_departure' in df.columns:
         top_destinos = df['place_destination_departure'].value_counts().head(10)
         
-        if len(top_destinos) > 0:
-            ax.barh(range(len(top_destinos)), top_destinos.values, color=click_bus_palette[0], alpha=0.8)
-            ax.set_yticks(range(len(top_destinos)))
-            
-            # Truncar nomes muito longos
-            labels = [str(d)[:25] + '...' if len(str(d)) > 25 else str(d) for d in top_destinos.index]
-            ax.set_yticklabels(labels)
-            
-            for i, v in enumerate(top_destinos.values):
-                ax.text(v + max(top_destinos.values) * 0.01, i, f'{v:,}', 
-                        va='center', fontweight='bold', fontsize=10, color=click_bus_palette[4])
-            
-            ax.set_title("Top 10 Destinos Mais Comuns", fontsize=16, fontweight='bold', pad=20)
-            ax.set_xlabel("Número de Viagens", fontsize=12)
-            ax.grid(True, alpha=0.3, axis='x')
-        else:
-            ax.text(0.5, 0.5, 'Dados insuficientes para destinos', 
-                    ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'Dados de destinos não disponíveis', 
-                ha='center', va='center', transform=ax.transAxes)
+        ax.barh(range(len(top_destinos)), top_destinos.values, color=click_bus_palette[0], alpha=0.8)
+        ax.set_yticks(range(len(top_destinos)))
+        
+        # Truncar nomes muito longos
+        labels = [str(d)[:25] + '...' if len(str(d)) > 25 else str(d) for d in top_destinos.index]
+        ax.set_yticklabels(labels)
+        
+        for i, v in enumerate(top_destinos.values):
+            ax.text(v + max(top_destinos.values) * 0.01, i, f'{v}', 
+                    va='center', fontweight='bold', fontsize=10, color=click_bus_palette[4])
+        
+        ax.set_title("Top Destinos Mais Comuns", fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel("Número de Viagens", fontsize=12)
+        ax.grid(True, alpha=0.3, axis='x')
     
     plt.tight_layout()
     return fig
@@ -188,33 +186,21 @@ def gerar_grafico_distribuicao(df):
     fig, ax = plt.subplots(figsize=(12, 6))
     
     if 'gmv_success' in df.columns:
-        # Usar percentis para evitar outliers extremos
-        Q1 = df['gmv_success'].quantile(0.05)  # 5% para ser menos restritivo
-        Q3 = df['gmv_success'].quantile(0.95)  # 95% para ser menos restritivo
-        df_filtrado = df[(df['gmv_success'] >= Q1) & (df['gmv_success'] <= Q3)]
+        ax.hist(df['gmv_success'], bins=15, alpha=0.7, 
+               color=click_bus_palette[0], edgecolor='white')
         
-        if len(df_filtrado) > 0:
-            ax.hist(df_filtrado['gmv_success'], bins=30, alpha=0.7, 
-                   color=click_bus_palette[0], edgecolor='white')
-            
-            media = df['gmv_success'].mean()
-            mediana = df['gmv_success'].median()
-            ax.axvline(media, color=click_bus_palette[1], linestyle='--', linewidth=2,
-                      label=f'Média: R$ {media:.2f}')
-            ax.axvline(mediana, color=click_bus_palette[2], linestyle='--', linewidth=2,
-                      label=f'Mediana: R$ {mediana:.2f}')
-            
-            ax.set_title("Distribuição de Valores das Passagens", fontsize=16, fontweight='bold', pad=20)
-            ax.set_xlabel("Valor (R$)", fontsize=12)
-            ax.set_ylabel("Frequência", fontsize=12)
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-        else:
-            ax.text(0.5, 0.5, 'Dados insuficientes após filtro', 
-                    ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'Dados de valores não disponíveis', 
-                ha='center', va='center', transform=ax.transAxes)
+        media = df['gmv_success'].mean()
+        mediana = df['gmv_success'].median()
+        ax.axvline(media, color=click_bus_palette[1], linestyle='--', linewidth=2,
+                  label=f'Média: R$ {media:.2f}')
+        ax.axvline(mediana, color=click_bus_palette[2], linestyle='--', linewidth=2,
+                  label=f'Mediana: R$ {mediana:.2f}')
+        
+        ax.set_title("Distribuição de Valores das Passagens", fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel("Valor (R$)", fontsize=12)
+        ax.set_ylabel("Frequência", fontsize=12)
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
     plt.tight_layout()
     return fig
@@ -225,29 +211,21 @@ def gerar_grafico_retorno(df):
     
     if 'tem_retorno' in df.columns:
         contagem_retorno = df['tem_retorno'].value_counts()
+        labels = ['Sem Retorno', 'Com Retorno']
+        cores = [click_bus_palette[0], click_bus_palette[1]]
         
-        if len(contagem_retorno) >= 2:
-            labels = ['Sem Retorno', 'Com Retorno']
-            cores = [click_bus_palette[0], click_bus_palette[1]]
-            
-            wedges, texts, autotexts = ax.pie(contagem_retorno.values, labels=labels, colors=cores,
-                                             autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-            
-            for text in texts:
-                text.set_fontweight('bold')
-                text.set_fontsize(12)
-            for autotext in autotexts:
-                autotext.set_color('white')
-                autotext.set_fontweight('bold')
-                autotext.set_fontsize(12)
-            
-            ax.set_title("Proporção de Viagens com Retorno", fontsize=16, fontweight='bold', pad=20)
-        else:
-            ax.text(0.5, 0.5, 'Dados insuficientes para retorno', 
-                    ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'Dados de retorno não disponíveis', 
-                ha='center', va='center', transform=ax.transAxes)
+        wedges, texts, autotexts = ax.pie(contagem_retorno.values, labels=labels, colors=cores,
+                                         autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
+        
+        for text in texts:
+            text.set_fontweight('bold')
+            text.set_fontsize(12)
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
+            autotext.set_fontsize(12)
+        
+        ax.set_title("Proporção de Viagens com Retorno", fontsize=16, fontweight='bold', pad=20)
     
     plt.tight_layout()
     return fig
@@ -259,21 +237,14 @@ def gerar_grafico_sazonalidade(df):
     if 'mes_ano' in df.columns:
         viagens_por_mes = df.groupby('mes_ano').size()
         
-        if len(viagens_por_mes) > 1:
-            ax.plot(viagens_por_mes.index.astype(str), viagens_por_mes.values,
-                   marker='o', color=click_bus_palette[0], linewidth=3, markersize=8)
-            
-            ax.set_title("Sazonalidade - Número de Viagens por Mês", fontsize=16, fontweight='bold', pad=20)
-            ax.set_xlabel("Mês/Ano", fontsize=12)
-            ax.set_ylabel("Número de Viagens", fontsize=12)
-            ax.tick_params(axis='x', rotation=45)
-            ax.grid(True, alpha=0.3)
-        else:
-            ax.text(0.5, 0.5, 'Dados insuficientes para sazonalidade', 
-                    ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'Dados temporais não disponíveis', 
-                ha='center', va='center', transform=ax.transAxes)
+        ax.plot(viagens_por_mes.index.astype(str), viagens_por_mes.values,
+               marker='o', color=click_bus_palette[0], linewidth=3, markersize=8)
+        
+        ax.set_title("Sazonalidade - Número de Viagens por Mês", fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel("Mês/Ano", fontsize=12)
+        ax.set_ylabel("Número de Viagens", fontsize=12)
+        ax.tick_params(axis='x', rotation=45)
+        ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
     return fig
@@ -290,18 +261,14 @@ def mostrar_analise(df):
     with col1:
         st.markdown(f'<div class="metric-card">Total de Viagens<br><span style="font-size: 24px; font-weight: bold;">{len(df):,}</span></div>', unsafe_allow_html=True)
     with col2:
-        if 'gmv_success' in df.columns:
-            valor_medio = df['gmv_success'].mean()
-            st.markdown(f'<div class="metric-card">Valor Médio<br><span style="font-size: 24px; font-weight: bold;">R$ {valor_medio:.2f}</span></div>', unsafe_allow_html=True)
+        valor_medio = df['gmv_success'].mean()
+        st.markdown(f'<div class="metric-card">Valor Médio<br><span style="font-size: 24px; font-weight: bold;">R$ {valor_medio:.2f}</span></div>', unsafe_allow_html=True)
     with col3:
-        if 'place_destination_departure' in df.columns:
-            destino = df['place_destination_departure'].mode()
-            destino_texto = destino[0] if not destino.empty else "N/A"
-            st.markdown(f'<div class="metric-card">Destino Mais Popular<br><span style="font-size: 20px; font-weight: bold;">{destino_texto[:15] + "..." if len(destino_texto) > 15 else destino_texto}</span></div>', unsafe_allow_html=True)
+        destino = df['place_destination_departure'].mode()[0]
+        st.markdown(f'<div class="metric-card">Destino Mais Popular<br><span style="font-size: 20px; font-weight: bold;">{destino[:15] + "..." if len(destino) > 15 else destino}</span></div>', unsafe_allow_html=True)
     with col4:
-        if 'tem_retorno' in df.columns:
-            perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
-            st.markdown(f'<div class="metric-card">Viagens c/ Retorno<br><span style="font-size: 24px; font-weight: bold;">{perc_retorno:.1f}%</span></div>', unsafe_allow_html=True)
+        perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
+        st.markdown(f'<div class="metric-card">Viagens c/ Retorno<br><span style="font-size: 24px; font-weight: bold;">{perc_retorno:.1f}%</span></div>', unsafe_allow_html=True)
     
     # Gráficos
     st.markdown("---")
@@ -336,75 +303,63 @@ def mostrar_analise(df):
     
     with col1:
         st.subheader("📅 Distribuição por Mês")
-        if 'mes_ano' in df.columns:
-            viagens_por_mes = df['mes_ano'].value_counts().sort_index()
-            st.dataframe(viagens_por_mes, use_container_width=True)
+        viagens_por_mes = df['mes_ano'].value_counts().sort_index()
+        st.dataframe(viagens_por_mes, use_container_width=True)
     
     with col2:
         st.subheader("💰 Estatísticas de Valores")
-        if 'gmv_success' in df.columns:
-            stats = df['gmv_success'].describe()
-            st.dataframe(pd.DataFrame({
-                'Estatística': stats.index,
-                'Valor (R$)': stats.values.round(2)
-            }), use_container_width=True, hide_index=True)
+        stats = df['gmv_success'].describe()
+        st.dataframe(pd.DataFrame({
+            'Estatística': stats.index,
+            'Valor (R$)': stats.values.round(2)
+        }), use_container_width=True, hide_index=True)
     
     # Dados brutos
     st.markdown("---")
-    expander = st.expander("📋 Visualizar Dados da Amostra (100 primeiras linhas)")
+    expander = st.expander("📋 Visualizar Dados Completos")
     with expander:
-        st.dataframe(df.head(100), use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
 def main():
     st.markdown('<h1 class="main-header">🚌 DataBus - Análise de Viagens ClickBus</h1>', unsafe_allow_html=True)
     
     st.markdown(f'<div class="sample-info">'
-               f'🎯 <strong>MODO AMOSTRA INTELIGENTE</strong><br>'
-               f'📊 Otimizado para extrair máximo insights de amostras menores'
+               f'🎯 <strong>MODO DADOS EMBUTIDOS</strong><br>'
+               f'📊 Análise com dados de exemplo integrados - Sem necessidade de upload'
                f'</div>', unsafe_allow_html=True)
     
-    # Upload do arquivo
-    uploaded_file = st.file_uploader(
-        "📤 Faça upload da amostra_pequena.csv", 
-        type="csv", 
-        key="csv_uploader_unique",
-        help="Faça upload do arquivo de amostra para análise detalhada"
-    )
-    
-    if uploaded_file is not None:
-        # Informações do arquivo
-        file_size = uploaded_file.size / (1024*1024)
-        st.info(f"📁 **Arquivo:** {uploaded_file.name} | **Tamanho:** {file_size:.1f} MB")
+    # Botão para carregar dados embutidos
+    if st.button("🚀 CARREGAR E ANALISAR DADOS", type="primary", use_container_width=True):
+        with st.spinner("⏳ Carregando dados de exemplo..."):
+            df = carregar_dados_embutidos()
         
-        if st.button("🚀 ANALISAR AMOSTRA", type="primary", use_container_width=True):
-            with st.spinner("⏳ Processando amostra de forma inteligente..."):
-                df = processar_amostra_inteligente(uploaded_file)
-            
-            if df is not None:
-                mostrar_analise(df)
+        if df is not None:
+            mostrar_analise(df)
     else:
         # Instruções
         st.markdown("""
         ## 📋 Como usar esta ferramenta:
         
-        1. **📤 Faça upload** do arquivo `amostra_pequena.csv`
-        2. **🚀 Clique** em "ANALISAR AMOSTRA"
-        3. **📊 Explore** as métricas e gráficos gerados
+        1. **🚀 Clique** em "CARREGAR E ANALISAR DADOS"
+        2. **📊 Explore** as métricas e gráficos gerados
+        3. **📋 Analise** os dados de exemplo
         
-        ### 🎯 Análise Inteligente:
-        - **Processamento otimizado** para amostras menores
-        - **Detecção automática** de colunas disponíveis
-        - **Visualizações adaptativas** baseadas nos dados
+        ### 🎯 Dados de Exemplo Incluídos:
+        - **25 registros** de viagens simuladas
+        - Período de **Maio a Setembro de 2023**
+        - Valores entre **R$ 55,60 e R$ 210,00**
+        - **3 destinos** principais (São Paulo, Rio de Janeiro, Belo Horizonte)
+        - Dados de **retorno** incluídos
         
-        ### ⚠️ Dados esperados:
-        - `gmv_success` - Valor da passagem
-        - `date_purchase` - Data da compra
-        - `time_purchase` - Hora da compra  
-        - `place_destination_departure` - Destino
-        - `place_origin_return` - Informações de retorno
+        ### 📊 Métricas Disponíveis:
+        - Média de valores por mês
+        - Top destinos mais comuns  
+        - Distribuição de valores
+        - Proporção de viagens com retorno
+        - Sazonalidade temporal
         
-        ### 💡 Dica:
-        Mesmo com amostra reduzida, o sistema extrairá o máximo de insights possível!
+        ### 💡 Para usar seus próprios dados:
+        Substitua a função `carregar_dados_embutidos()` com seus dados reais
         """)
 
 if __name__ == "__main__":
