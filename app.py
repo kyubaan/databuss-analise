@@ -49,9 +49,8 @@ st.markdown("""
 def carregar_csv_completo():
     """Carrega o arquivo CSV completo do repositório"""
     try:
-        # Tenta carregar o arquivo CSV do diretório do GitHub
-        # Altere 'dados.csv' para o nome do seu arquivo real
-        arquivo_csv = "df_t.csv"  # ← ALTERE PARA O NOME DO SEU ARQUIVO
+        # Alterado para amostra_pequena.csv
+        arquivo_csv = "amostra_pequena.csv"
         
         st.info(f"📁 Tentando carregar: {arquivo_csv}")
         
@@ -69,7 +68,7 @@ def carregar_csv_completo():
             return None
         
         # Carrega o CSV completo
-        st.info("⏳ Carregando arquivo CSV completo... (isso pode demorar para arquivos grandes)")
+        st.info("⏳ Carregando arquivo CSV...")
         
         # Lê apenas as colunas essenciais para economizar memória
         colunas_essenciais = [
@@ -349,17 +348,18 @@ def main():
     
     st.markdown(f'<div class="file-info">'
                f'🎯 <strong>MODO CSV COMPLETO</strong><br>'
-               f'📊 Análise com arquivo CSV completo do repositório - Sem necessidade de upload'
+               f'📊 Analisando arquivo: amostra_pequena.csv<br>'
+               f'📈 Análise com amostra de dados - Sem necessidade de upload'
                f'</div>', unsafe_allow_html=True)
     
     # Adicionar spinner durante o carregamento
-    with st.spinner('Carregando dados...'):
+    with st.spinner('Carregando dados da amostra pequena...'):
         df = carregar_csv_completo()
     
     if df is not None:
         mostrar_analise(df)
     else:
-        st.error("Não foi possível carregar os dados. Verifique se o arquivo CSV existe.")
+        st.error("Não foi possível carregar os dados. Verifique se o arquivo 'amostra_pequena.csv' existe no diretório.")
 
 # EXECUTAR A APLICAÇÃO
 if __name__ == "__main__":
