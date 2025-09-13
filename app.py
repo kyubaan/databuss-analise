@@ -4,6 +4,7 @@ import seaborn as sns
 import streamlit as st
 import numpy as np
 from datetime import datetime
+import os
 
 # Configuração da página
 st.set_page_config(
@@ -50,8 +51,44 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 @st.cache_data
+def carregar_dados():
+    """Carrega os dados do arquivo CSV no repositório"""
+    try:
+        # Tenta carregar o arquivo do diretório (que está no GitHub)
+        df = pd.read_csv("dados.csv")
+        
+        # Pré-processamento
+        if 'date_purchase' in df.columns and 'time_purchase' in df.columns:
+            df['data_hora'] = pd.to_datetime(
+                df['date_purchase'] + ' ' + df['time_purchase'],
+                errors='coerce'
+            )
+            df = df.dropna(subset=['data_hora'])
+            
+            # Filtrar para último ano
+            data_inicio = pd.to_datetime("2023-04-01")
+            data_fim = pd.to_datetime("2024-04-01")
+            df = df[(df['data_hora'] >= data_inicio) & (df['data_hora'] <= data_fim)]
+            
+            df['mes_ano'] = df['data_hora'].dt.to_period('M')
+            df['mes'] = df['data_hora'].dt.month
+            df['dia_semana'] = df['data_hora'].dt.day_name()
+        
+        if 'place_origin_return' in df.columns:
+            df['tem_retorno'] = df['place_origin_return'] != '0'
+            
+        return df
+        
+    except FileNotFoundError:
+        st.warning("Arquivo 'dados.csv' não encontrado no diretório.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Erro ao processar: {str(e)}")
+        return None
+
+@st.cache_data
 def processar_amostra_csv(uploaded_file, tamanho_amostra=50000):
-    """Processa uma amostra do CSV grande"""
+    """Processa uma amostra do CSV grande (para fallback)"""
     try:
         # Ler apenas as colunas essenciais
         colunas_essenciais = [
@@ -200,142 +237,132 @@ def gerar_grafico_sazonalidade(df):
     plt.tight_layout()
     return fig
 
+def mostrar_analise(df):
+    """Mostra a análise dos dados"""
+    st.success(f"✅ **Dados carregados com sucesso!** {len(df):,} registros")
+    
+    # Métricas principais
+    st.markdown("---")
+    st.header("📊 Métricas Principais")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(f'<div class="metric-card">Total de Viagens<br><span style="font-size: 24px; font-weight: bold;">{len(df):,}</span></div>', unsafe_allow_html=True)
+    with col2:
+        valor_medio = df['gmv_success'].mean() if 'gmv_success' in df.columns else 0
+        st.markdown(f'<div class="metric-card">Valor Médio<br><span style="font-size: 24px; font-weight: bold;">R$ {valor_medio:.2f}</span></div>', unsafe_allow_html=True)
+    with col3:
+        if 'place_destination_departure' in df.columns:
+            destino = df['place_destination_departure'].mode()
+            destino_texto = destino[0] if not destino.empty else "N/A"
+            if len(destino_texto) > 15:
+                destino_texto = destino_texto[:15] + "..."
+            st.markdown(f'<div class="metric-card">Destino Mais Popular<br><span style="font-size: 20px; font-weight: bold;">{destino_texto}</span></div>', unsafe_allow_html=True)
+    with col4:
+        if 'tem_retorno' in df.columns:
+            perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
+            st.markdown(f'<div class="metric-card">Viagens c/ Retorno<br><span style="font-size: 24px; font-weight: bold;">{perc_retorno:.1f}%</span></div>', unsafe_allow_html=True)
+    
+    # Gráficos
+    st.markdown("---")
+    st.header("📈 Visualizações")
+    
+    # Abas para os gráficos
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📅 Média Mensal", "🗺️ Top Destinos", "📊 Distribuição Valores", 
+        "🔄 Viagens c/ Retorno", "📈 Sazonalidade"
+    ])
+    
+    with tab1:
+        st.pyplot(gerar_grafico_media_mensal(df))
+    
+    with tab2:
+        st.pyplot(gerar_grafico_destinos(df))
+    
+    with tab3:
+        st.pyplot(gerar_grafico_distribuicao(df))
+    
+    with tab4:
+        st.pyplot(gerar_grafico_retorno(df))
+    
+    with tab5:
+        st.pyplot(gerar_grafico_sazonalidade(df))
+    
+    # Dados brutos
+    st.markdown("---")
+    expander = st.expander("📋 Visualizar Dados da Amostra (100 primeiras linhas)")
+    with expander:
+        st.dataframe(df.head(100), use_container_width=True)
+    
+    # Download da amostra processada
+    st.markdown("---")
+    csv = df.to_csv(index=False)
+    st.download_button(
+        label="📥 Download da Amostra Processada (CSV)",
+        data=csv,
+        file_name="amostra_processada.csv",
+        mime="text/csv",
+        use_container_width=True,
+        key="download_btn_unique"
+    )
+
 def main():
     st.markdown('<h1 class="main-header">🚌 DataBus - Análise de Viagens ClickBus</h1>', unsafe_allow_html=True)
     
-    # Upload do arquivo
-    uploaded_file = st.file_uploader(
-        "📤 Faça upload do arquivo CSV com dados de viagens", 
-        type="csv", 
-        key="csv_uploader_unique"
-    )
+    # Tenta carregar os dados do arquivo no repositório primeiro
+    df = carregar_dados()
     
-    if uploaded_file is not None:
-        # Informações do arquivo
-        file_size = uploaded_file.size / (1024*1024)
-        st.info(f"📁 **Arquivo:** {uploaded_file.name} | **Tamanho:** {file_size:.1f} MB")
-        
-        # Controles
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            tamanho_amostra = st.slider(
-                "**Tamanho da amostra para análise:**",
-                min_value=10000,
-                max_value=150000,
-                value=50000,
-                help="Número de registros que serão processados",
-                key="slider_amostra_unique"
-            )
-        with col2:
-            st.write("")
-            st.write("")
-            processar = st.button(
-                "🚀 **Processar Análise**", 
-                type="primary", 
-                use_container_width=True,
-                key="processar_btn_unique"
-            )
-        
-        if processar:
-            with st.spinner(f"⏳ Processando {tamanho_amostra:,} registros..."):
-                df = processar_amostra_csv(uploaded_file, tamanho_amostra)
-            
-            if df is not None:
-                st.success(f"✅ **Amostra processada com sucesso!** {len(df):,} registros")
-                
-                # Métricas principais
-                st.markdown("---")
-                st.header("📊 Métricas Principais")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.markdown(f'<div class="metric-card">Total de Viagens<br><span style="font-size: 24px; font-weight: bold;">{len(df):,}</span></div>', unsafe_allow_html=True)
-                with col2:
-                    valor_medio = df['gmv_success'].mean() if 'gmv_success' in df.columns else 0
-                    st.markdown(f'<div class="metric-card">Valor Médio<br><span style="font-size: 24px; font-weight: bold;">R$ {valor_medio:.2f}</span></div>', unsafe_allow_html=True)
-                with col3:
-                    if 'place_destination_departure' in df.columns:
-                        destino = df['place_destination_departure'].mode()
-                        destino_texto = destino[0] if not destino.empty else "N/A"
-                        if len(destino_texto) > 15:
-                            destino_texto = destino_texto[:15] + "..."
-                        st.markdown(f'<div class="metric-card">Destino Mais Popular<br><span style="font-size: 20px; font-weight: bold;">{destino_texto}</span></div>', unsafe_allow_html=True)
-                with col4:
-                    if 'tem_retorno' in df.columns:
-                        perc_retorno = (df['tem_retorno'].sum() / len(df)) * 100
-                        st.markdown(f'<div class="metric-card">Viagens c/ Retorno<br><span style="font-size: 24px; font-weight: bold;">{perc_retorno:.1f}%</span></div>', unsafe_allow_html=True)
-                
-                # Gráficos
-                st.markdown("---")
-                st.header("📈 Visualizações")
-                
-                # Abas para os gráficos
-                tab1, tab2, tab3, tab4, tab5 = st.tabs([
-                    "📅 Média Mensal", "🗺️ Top Destinos", "📊 Distribuição Valores", 
-                    "🔄 Viagens c/ Retorno", "📈 Sazonalidade"
-                ])
-                
-                with tab1:
-                    st.pyplot(gerar_grafico_media_mensal(df))
-                
-                with tab2:
-                    st.pyplot(gerar_grafico_destinos(df))
-                
-                with tab3:
-                    st.pyplot(gerar_grafico_distribuicao(df))
-                
-                with tab4:
-                    st.pyplot(gerar_grafico_retorno(df))
-                
-                with tab5:
-                    st.pyplot(gerar_grafico_sazonalidade(df))
-                
-                # Dados brutos
-                st.markdown("---")
-                expander = st.expander("📋 Visualizar Dados da Amostra (100 primeiras linhas)")
-                with expander:
-                    st.dataframe(df.head(100), use_container_width=True)
-                
-                # Download da amostra processada
-                st.markdown("---")
-                csv = df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download da Amostra Processada (CSV)",
-                    data=csv,
-                    file_name="amostra_processada.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="download_btn_unique"
-                )
-    
+    if df is not None:
+        mostrar_analise(df)
     else:
-        # Instruções quando não há arquivo
-        st.markdown("""
-        ## 📋 Como usar esta ferramenta:
+        # Fallback: se não encontrar o arquivo, permite upload
+        st.info("""
+        ### 📁 Arquivo 'dados.csv' não encontrado
+        Para usar o app sem necessidade de upload, adicione um arquivo chamado **dados.csv** na raiz do seu repositório do GitHub.
         
-        1. **📤 Faça upload** de um arquivo CSV com dados de viagens
-        2. **🎚️ Ajuste** o tamanho da amostra conforme necessário
-        3. **🚀 Clique** em "Processar Análise"
-        4. **📊 Explore** as métricas e gráficos gerados
-        
-        ### ⚠️ Dados necessários no CSV:
-        - `gmv_success` - Valor da passagem
-        - `date_purchase` - Data da compra
-        - `time_purchase` - Hora da compra  
-        - `place_destination_departure` - Destino
-        - `place_origin_return` - Informações de retorno
-        
-        ### 💡 Dica:
-        Para arquivos muito grandes, use uma amostra menor para melhor performance.
+        Como alternativa, você pode fazer upload de um arquivo para análise:
         """)
         
-        # Exemplo de estrutura
-        with st.expander("🧾 Exemplo da estrutura do CSV"):
-            st.code("""
-gmv_success,date_purchase,time_purchase,place_destination_departure,place_origin_return
-150.50,2023-05-15,14:30:00,São Paulo - SP,0
-89.90,2023-06-20,09:15:00,Rio de Janeiro - RJ,1
-            """)
-
-if __name__ == "__main__":
-    main()
+        # Upload do arquivo (fallback)
+        uploaded_file = st.file_uploader(
+            "📤 Faça upload do arquivo CSV com dados de viagens", 
+            type="csv", 
+            key="csv_uploader_unique"
+        )
+        
+        if uploaded_file is not None:
+            # Informações do arquivo
+            file_size = uploaded_file.size / (1024*1024)
+            st.info(f"📁 **Arquivo:** {uploaded_file.name} | **Tamanho:** {file_size:.1f} MB")
+            
+            # Controles
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                tamanho_amostra = st.slider(
+                    "**Tamanho da amostra para análise:**",
+                    min_value=10000,
+                    max_value=150000,
+                    value=50000,
+                    help="Número de registros que serão processados",
+                    key="slider_amostra_unique"
+                )
+            with col2:
+                st.write("")
+                st.write("")
+                processar = st.button(
+                    "🚀 **Processar Análise**", 
+                    type="primary", 
+                    use_container_width=True,
+                    key="processar_btn_unique"
+                )
+            
+            if processar:
+                with st.spinner(f"⏳ Processando {tamanho_amostra:,} registros..."):
+                    df_uploaded = processar_amostra_csv(uploaded_file, tamanho_amostra)
+                
+                if df_uploaded is not None:
+                    mostrar_analise(df_uploaded)
+    
+    # Instruções quando não há dados
+    if df is None and 'uploaded_file' not in locals():
+        st
