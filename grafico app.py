@@ -28,30 +28,38 @@ class AnaliseDadosViagens:
         if self.df is not None:
             self.preprocessar_dados()
 
-    def carregar_dados(self, arquivo_parquet):
-        # Carrega os dados do arquivo Parquet
+   def carregar_dados(self, arquivo_parquet):
+    # Carrega os dados do arquivo Parquet
+    try:
+        st.write(f"Tentando carregar: {arquivo_parquet}")
+        
+        # Tentar carregar com diferentes engines
         try:
-            df = pd.read_parquet(arquivo_parquet)
-            st.success("Dados carregados com sucesso do arquivo Parquet!")
-            st.info(f"Total de registros: {len(df):,}")
-            return df
-        except FileNotFoundError:
-            st.error(f"Erro: Arquivo {arquivo_parquet} não encontrado.")
-            st.info("💡 Dica: Execute primeiro o script de conversão para Parquet")
-            return None
-        except Exception as e:
-            st.error(f"Erro ao carregar arquivo Parquet: {e}")
-            # Tentar carregar CSV como fallback
-            try:
-                csv_path = arquivo_parquet.replace('.parquet', '.csv')
-                if os.path.exists(csv_path):
-                    st.info("Tentando carregar CSV como alternativa...")
-                    df = pd.read_csv(csv_path)
-                    st.success("Dados carregados do CSV como alternativa!")
-                    return df
-            except:
-                pass
-            return None
+            df = pd.read_parquet(arquivo_parquet, engine='pyarrow')
+        except:
+            df = pd.read_parquet(arquivo_parquet, engine='fastparquet')
+        
+        st.success(f"Dados carregados com sucesso! {len(df):,} registros")
+        return df
+        
+    except FileNotFoundError:
+        st.error(f"Arquivo {arquivo_parquet} não encontrado.")
+        return None
+    except Exception as e:
+        st.error(f"Erro ao carregar arquivo: {str(e)}")
+        
+        # Tentar carregar CSV como fallback
+        try:
+            csv_path = arquivo_parquet.replace('.parquet', '.csv')
+            if os.path.exists(csv_path):
+                st.info("Tentando carregar CSV como alternativa...")
+                df = pd.read_csv(csv_path)
+                st.success("Dados carregados do CSV como alternativa!")
+                return df
+        except Exception as csv_error:
+            st.error(f"Também falhou ao carregar CSV: {csv_error}")
+            
+        return None
 
     def preprocessar_dados(self):
         # Realiza pre-processamento dos dados
@@ -255,8 +263,23 @@ class AnaliseDadosViagens:
         return fig
 
 # Interface principal do Streamlit
-# Interface principal do Streamlit
-def main():
+    def main():
+    # VERIFICAÇÃO DE DEBUG - Adicione estas linhas
+    import os
+    st.write("🔍 **DEBUG: Verificação de Arquivos**")
+    st.write(f"Diretório atual: {os.getcwd()}")
+    st.write("Arquivos nesta pasta:")
+    
+    for arquivo in os.listdir("."):
+        if any(arquivo.endswith(ext) for ext in ['.csv', '.parquet', '.py']):
+            tamanho = os.path.getsize(arquivo) / (1024*1024)
+            st.write(f"- {arquivo}: {tamanho:.2f} MB")
+    
+    # Verificar existência dos arquivos específicos
+    st.write(f"df_t.csv existe: {os.path.exists('df_t.csv')}")
+    st.write(f"dados_viagens.parquet existe: {os.path.exists('dados_viagens.parquet')}")
+    
+    # ... o resto do seu código continua aqui ...
     # Cabeçalho com logo (simulado)
     st.markdown(
         """
