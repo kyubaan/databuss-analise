@@ -57,6 +57,14 @@ def carregar_dados():
         # Tenta carregar o arquivo do diretório (que está no GitHub)
         df = pd.read_csv("dados.csv")
         
+        # Verificar se as colunas necessárias existem
+        colunas_necessarias = ['date_purchase', 'time_purchase', 'gmv_success']
+        colunas_faltantes = [col for col in colunas_necessarias if col not in df.columns]
+        
+        if colunas_faltantes:
+            st.warning(f"⚠️ Colunas faltantes no arquivo: {', '.join(colunas_faltantes)}")
+            return None
+        
         # Pré-processamento
         if 'date_purchase' in df.columns and 'time_purchase' in df.columns:
             df['data_hora'] = pd.to_datetime(
@@ -362,7 +370,38 @@ def main():
                 
                 if df_uploaded is not None:
                     mostrar_analise(df_uploaded)
-    
-    # Instruções quando não há dados
-    if df is None and 'uploaded_file' not in locals():
-        st
+        else:
+            # Instruções quando não há dados
+            st.markdown("""
+            ## 📋 Como usar esta ferramenta:
+            
+            1. **📤 Faça upload** de um arquivo CSV com dados de viagens
+            2. **🎚️ Ajuste** o tamanho da amostra conforme necessário
+            3. **🚀 Clique** em "Processar Análise"
+            4. **📊 Explore** as métricas e gráficos gerados
+            
+            ### ⚠️ Dados necessários no CSV:
+            - `gmv_success` - Valor da passagem
+            - `date_purchase` - Data da compra
+            - `time_purchase` - Hora da compra  
+            - `place_destination_departure` - Destino
+            - `place_origin_return` - Informações de retorno
+            
+            ### 💡 Para uso permanente:
+            Adicione um arquivo chamado **dados.csv** na raiz do seu repositório do GitHub
+            para que o app carregue automaticamente sem necessidade de upload.
+            
+            ### 💡 Dica:
+            Para arquivos muito grandes, use uma amostra menor para melhor performance.
+            """)
+            
+            # Exemplo de estrutura
+            with st.expander("🧾 Exemplo da estrutura do CSV"):
+                st.code("""
+gmv_success,date_purchase,time_purchase,place_destination_departure,place_origin_return
+150.50,2023-05-15,14:30:00,São Paulo - SP,0
+89.90,2023-06-20,09:15:00,Rio de Janeiro - RJ,1
+                """)
+
+if __name__ == "__main__":
+    main()
