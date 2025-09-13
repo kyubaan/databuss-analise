@@ -23,11 +23,11 @@ def processar_amostra_csv(uploaded_file, tamanho_amostra=50000):
                              'place_destination_departure', 'place_origin_return']
         
         # Verificar quais colunas existem no arquivo
-        primeira_linha = pd.read_csv(uploaded_file, nrows=0)
-        colunas_para_ler = [col for col in colunas_essenciais if col in primeira_linha.columns]
-        
-        # Voltar ao início do arquivo
         uploaded_file.seek(0)
+        primeira_linha = pd.read_csv(uploaded_file, nrows=0)
+        uploaded_file.seek(0)
+        
+        colunas_para_ler = [col for col in colunas_essenciais if col in primeira_linha.columns]
         
         # Ler amostra
         df = pd.read_csv(uploaded_file, usecols=colunas_para_ler, nrows=tamanho_amostra)
@@ -60,7 +60,8 @@ def main():
     **💡 Para arquivos grandes:** O sistema usa uma amostra representativa para análise.
     """)
     
-    uploaded_file = st.file_uploader("📤 Faça upload do arquivo CSV", type="csv")
+    # ⬇️⬇️⬇️ LINHA CORRIGIDA - ADICIONE key ÚNICA ⬇️⬇️⬇️
+    uploaded_file = st.file_uploader("📤 Faça upload do arquivo CSV", type="csv", key="csv_uploader_unique")
     
     if uploaded_file is not None:
         # Mostrar informações do arquivo
@@ -73,10 +74,12 @@ def main():
             min_value=10000,
             max_value=100000,
             value=50000,
-            help="Número de registros para análise"
+            help="Número de registros para análise",
+            key="slider_amostra_unique"  # ⬅️ Key única para o slider também
         )
         
-        if st.button("🚀 Processar Análise", type="primary"):
+        # ⬇️⬇️⬇️ Key única para o botão ⬇️⬇️⬇️
+        if st.button("🚀 Processar Análise", type="primary", key="processar_btn_unique"):
             with st.spinner(f"Processando {tamanho_amostra:,} registros..."):
                 df = processar_amostra_csv(uploaded_file, tamanho_amostra)
             
@@ -122,7 +125,7 @@ def main():
                     st.pyplot(fig)
                 
                 # Dados
-                if st.checkbox("Mostrar amostra dos dados"):
+                if st.checkbox("Mostrar amostra dos dados", key="checkbox_dados_unique"):
                     st.dataframe(df.head(20))
     else:
         st.info("""
@@ -140,7 +143,5 @@ def main():
         - place_origin_return (retorno)
         """)
 
-if __name__ == "__main__":
-    main()
 if __name__ == "__main__":
     main()
