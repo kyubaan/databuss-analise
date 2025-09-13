@@ -55,7 +55,7 @@ def carregar_dados():
     """Carrega os dados do arquivo CSV no repositório"""
     try:
         # Tenta carregar o arquivo do diretório (que está no GitHub)
-        df = pd.read_csv("dados.csv")
+        df = pd.read_csv("amostra_pequena.csv")
         
         # Verificar se as colunas necessárias existem
         colunas_necessarias = ['date_purchase', 'time_purchase', 'gmv_success']
@@ -88,7 +88,7 @@ def carregar_dados():
         return df
         
     except FileNotFoundError:
-        st.warning("Arquivo 'dados.csv' não encontrado no diretório.")
+        st.warning("Arquivo 'amostra_pequena.csv' não encontrado no diretório.")
         return None
     except Exception as e:
         st.error(f"❌ Erro ao processar: {str(e)}")
@@ -325,8 +325,8 @@ def main():
     else:
         # Fallback: se não encontrar o arquivo, permite upload
         st.info("""
-        ### 📁 Arquivo 'dados.csv' não encontrado
-        Para usar o app sem necessidade de upload, adicione um arquivo chamado **dados.csv** na raiz do seu repositório do GitHub.
+        ### 📁 Arquivo 'amostra_pequena.csv' não encontrado
+        Para usar o app sem necessidade de upload, adicione um arquivo chamado **amostra_pequena.csv** na raiz do seu repositório do GitHub.
         
         Como alternativa, você pode fazer upload de um arquivo para análise:
         """)
@@ -388,7 +388,7 @@ def main():
             - `place_origin_return` - Informações de retorno
             
             ### 💡 Para uso permanente:
-            Adicione um arquivo chamado **dados.csv** na raiz do seu repositório do GitHub
+            Adicione um arquivo chamado **amostra_pequena.csv** na raiz do seu repositório do GitHub
             para que o app carregue automaticamente sem necessidade de upload.
             
             ### 💡 Dica:
