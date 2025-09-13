@@ -14,8 +14,8 @@ sns.set_palette(click_bus_palette)
 plt.style.use('default')
 
 # Função principal com cache para processamento dos dados
-@st.cache_data(show_spinner="Processando amostra de dados...")
-def processar_amostra_csv(uploaded_file, tamanho_amostra=100000):
+@st.cache_data(show_spinner="Processando amostra de dados...", ttl=3600)
+def processar_amostra_csv(uploaded_file, tamanho_amostra=100000, file_hash=None):
     """Processa apenas uma amostra do CSV grande"""
     try:
         # Primeiro: ler apenas as primeiras linhas para descobrir as colunas
@@ -85,102 +85,54 @@ def main():
     **💡 Para arquivos grandes (>200MB):** O sistema usa uma amostra representativa para análise.
     """)
     
-    # Verificar se já existem dados em cache
+    # Inicializar session state
     if 'dados_processados' not in st.session_state:
         st.session_state.dados_processados = None
-        st.session_state.nome_arquivo = None
+        st.session_state.arquivo_processado = None
+        st.session_state.tamanho_amostra = 50000
     
-    uploaded_file = st.file_uploader("📤 Faça upload do arquivo CSV", type="csv")
+    uploaded_file = st.file_uploader("📤 Faça upload do arquivo CSV", type="csv", 
+                                   help="Faça upload do arquivo uma vez e os dados ficarão salvos")
     
-    # Botão para limpar cache e dados
-    if st.button("🔄 Limpar Cache e Recarregar"):
+    # Slider para ajustar tamanho da amostra
+    tamanho_amostra = st.slider(
+        "Tamanho da amostra (registros):",
+        min_value=10000,
+        max_value=200000,
+        value=st.session_state.tamanho_amostra,
+        help="Para arquivos muito grandes, use amostras menores para melhor performance"
+    )
+    st.session_state.tamanho_amostra = tamanho_amostra
+    
+    # Botão para limpar cache
+    if st.button("🔄 Limpar Cache e Recarregar", type="secondary"):
         st.cache_data.clear()
         st.session_state.dados_processados = None
-        st.session_state.nome_arquivo = None
+        st.session_state.arquivo_processado = None
         st.rerun()
     
+    # Se já temos dados processados, mostrar diretamente
+    if st.session_state.dados_processados is not None:
+        df = st.session_state.dados_processados
+        mostrar_resultados(df)
+        return
+    
+    # Processar novo arquivo
     if uploaded_file is not None:
-        # Verificar se é um novo arquivo
-        if st.session_state.nome_arquivo != uploaded_file.name:
-            st.session_state.dados_processados = None
-            st.session_state.nome_arquivo = uploaded_file.name
-        
         # Mostrar informações do arquivo
         file_size = uploaded_file.size / (1024*1024)  # MB
         st.info(f"📁 Arquivo: {uploaded_file.name} | Tamanho: {file_size:.1f} MB")
         
-        # Slider para ajustar tamanho da amostra
-        tamanho_amostra = st.slider(
-            "Tamanho da amostra (registros):",
-            min_value=10000,
-            max_value=200000,
-            value=50000,
-            help="Para arquivos muito grandes, use amostras menores para melhor performance"
-        )
-        
-        if st.button("🚀 Processar Análise", type="primary") or st.session_state.dados_processados is not None:
-            if st.session_state.dados_processados is None:
-                with st.spinner(f"Processando amostra de {tamanho_amostra:,} registros..."):
-                    df = processar_amostra_csv(uploaded_file, tamanho_amostra)
-                    st.session_state.dados_processados = df
-            else:
-                df = st.session_state.dados_processados
-                st.success(f"✅ Dados já processados: {len(df):,} registros")
+        if st.button("🚀 Processar Análise", type="primary"):
+            with st.spinner(f"Processando amostra de {tamanho_amostra:,} registros..."):
+                # Gerar hash único para o arquivo
+                file_hash = f"{uploaded_file.name}_{uploaded_file.size}"
+                df = processar_amostra_csv(uploaded_file, tamanho_amostra, file_hash)
             
             if df is not None:
-                # Métricas
-                st.header("📊 Métricas Principais")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Amostra de Viagens", f"{len(df):,}")
-                with col2:
-                    valor_medio = df['gmv_success'].mean() if 'gmv_success' in df.columns else 0
-                    st.metric("Valor Médio", f"R$ {valor_medio:.2f}")
-                with col3:
-                    if 'place_destination_departure' in df.columns:
-                        destino_mais_comum = df['place_destination_departure'].mode()
-                        destino = destino_mais_comum[0] if not destino_mais_comum.empty else "N/A"
-                        st.metric("Destino Mais Popular", destino)
-                
-                # Gráficos
-                st.header("📈 Visualizações")
-                
-                tab1, tab2 = st.tabs(["Média Mensal", "Top Destinos"])
-                
-                with tab1:
-                    if 'mes_ano' in df.columns and 'gmv_success' in df.columns:
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        media_mensal = df.groupby('mes_ano')['gmv_success'].mean()
-                        ax.plot(media_mensal.index.astype(str), media_mensal.values, 
-                                marker='o', color=click_bus_palette[0], linewidth=2)
-                        ax.set_title("Média de Valores por Mês")
-                        ax.set_xlabel("Mês/Ano")
-                        ax.set_ylabel("Valor Médio (R$)")
-                        ax.tick_params(axis='x', rotation=45)
-                        ax.grid(True, alpha=0.3)
-                        st.pyplot(fig)
-                
-                with tab2:
-                    if 'place_destination_departure' in df.columns:
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        top_destinos = df['place_destination_departure'].value_counts().head(10)
-                        ax.barh(range(len(top_destinos)), top_destinos.values, color=click_bus_palette[0])
-                        ax.set_yticks(range(len(top_destinos)))
-                        ax.set_yticklabels(top_destinos.index)
-                        ax.set_xlabel("Número de Viagens")
-                        ax.set_title("Top 10 Destinos")
-                        st.pyplot(fig)
-                
-                # Estatísticas da amostra
-                with st.expander("📊 Estatísticas da Amostra"):
-                    st.write(f"- Total de registros na amostra: {len(df):,}")
-                    if 'data_hora' in df.columns:
-                        st.write(f"- Período coberto: {df['data_hora'].min().date()} a {df['data_hora'].max().date()}")
-                    if 'gmv_success' in df.columns:
-                        st.write(f"- Valor médio: R$ {df['gmv_success'].mean():.2f}")
-                        st.write(f"- Valor máximo: R$ {df['gmv_success'].max():.2f}")
-
+                st.session_state.dados_processados = df
+                st.session_state.arquivo_processado = uploaded_file.name
+                mostrar_resultados(df)
     
     else:
         st.info("""
@@ -195,6 +147,62 @@ def main():
         💡 **Dica:** Os dados ficarão salvos até você limpar o cache!
         """)
 
+def mostrar_resultados(df):
+    """Função para mostrar os resultados dos dados processados"""
+    # Métricas
+    st.header("📊 Métricas Principais")
     
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Amostra de Viagens", f"{len(df):,}")
+    with col2:
+        valor_medio = df['gmv_success'].mean() if 'gmv_success' in df.columns else 0
+        st.metric("Valor Médio", f"R$ {valor_medio:.2f}")
+    with col3:
+        if 'place_destination_departure' in df.columns:
+            destino_mais_comum = df['place_destination_departure'].mode()
+            destino = destino_mais_comum[0] if not destino_mais_comum.empty else "N/A"
+            st.metric("Destino Mais Popular", destino)
+    
+    # Gráficos
+    st.header("📈 Visualizações")
+    
+    tab1, tab2 = st.tabs(["Média Mensal", "Top Destinos"])
+    
+    with tab1:
+        if 'mes_ano' in df.columns and 'gmv_success' in df.columns:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            media_mensal = df.groupby('mes_ano')['gmv_success'].mean()
+            ax.plot(media_mensal.index.astype(str), media_mensal.values, 
+                    marker='o', color=click_bus_palette[0], linewidth=2)
+            ax.set_title("Média de Valores por Mês")
+            ax.set_xlabel("Mês/Ano")
+            ax.set_ylabel("Valor Médio (R$)")
+            ax.tick_params(axis='x', rotation=45)
+            ax.grid(True, alpha=0.3)
+            st.pyplot(fig)
+    
+    with tab2:
+        if 'place_destination_departure' in df.columns:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            top_destinos = df['place_destination_departure'].value_counts().head(10)
+            ax.barh(range(len(top_destinos)), top_destinos.values, color=click_bus_palette[0])
+            ax.set_yticks(range(len(top_destinos)))
+            ax.set_yticklabels(top_destinos.index)
+            ax.set_xlabel("Número de Viagens")
+            ax.set_title("Top 10 Destinos")
+            st.pyplot(fig)
+    
+    # Estatísticas da amostra
+    with st.expander("📊 Estatísticas da Amostra"):
+        st.write(f"- Total de registros na amostra: {len(df):,}")
+        if 'data_hora' in df.columns:
+            st.write(f"- Período coberto: {df['data_hora'].min().date()} a {df['data_hora'].max().date()}")
+        if 'gmv_success' in df.columns:
+            st.write(f"- Valor médio: R$ {df['gmv_success'].mean():.2f}")
+            st.write(f"- Valor máximo: R$ {df['gmv_success'].max():.2f}")
+    
+    st.success("✅ Dados carregados! Você pode recarregar a página que os dados permanecerão.")
+
 if __name__ == "__main__":
     main()
