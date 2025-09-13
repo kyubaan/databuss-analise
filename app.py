@@ -5,6 +5,11 @@ import streamlit as st
 import numpy as np
 from datetime import datetime
 
+uploaded_file = st.file_uploader("Carregar CSV")
+
+if uploaded_file is not None:
+    dados = pd.read_csv(uploaded_file)  # Sem cache - recarrega sempre
+    
 # Configuração da página
 st.set_page_config(page_title="DataBus - Análise de Viagens", page_icon="🚌", layout="wide")
 
@@ -155,6 +160,8 @@ def main():
                     if 'gmv_success' in df.columns:
                         st.write(f"- Valor médio: R$ {df['gmv_success'].mean():.2f}")
                         st.write(f"- Valor máximo: R$ {df['gmv_success'].max():.2f}")
+
+    
     else:
         st.info("""
         ## 📋 Instruções:
@@ -166,5 +173,20 @@ def main():
         ⚠️ **Arquivos muito grandes** serão processados por amostragem
         """)
 
+# 1. ADICIONE A FUNÇÃO COM CACHE
+@st.cache_data
+def carregar_dados(arquivo):
+    return pd.read_csv(arquivo)
+
+# 2. Interface normal
+uploaded_file = st.file_uploader("Carregar CSV")
+
+if uploaded_file is not None:
+    # 3. USE A FUNÇÃO COM CACHE
+    dados = carregar_dados(uploaded_file)
+    
+    # ... resto do seu código (gráficos, análises, etc)
+    st.write("Dados processados e salvos em cache!")
+    
 if __name__ == "__main__":
     main()
