@@ -414,7 +414,7 @@ def main():
                 st.download_button(
                     label="📥 Download da Amostra Processada (CSV)",
                     data=csv,
-                    file_name="amostra_alta_precisao.csv",
+                    file_name="amostra_pequena.csv",
                     mime="text/csv",
                     use_container_width=True,
                     help="Baixe os dados processados para análise offline"
